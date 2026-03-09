@@ -3,3 +3,4 @@ schowek.db
 *.db-shm
 *.db-wal
 .env
+tmp/
