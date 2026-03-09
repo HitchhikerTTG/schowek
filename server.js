@@ -111,6 +111,35 @@ app.get('/api/pin-required', (_req, res) => {
   res.json({ required: !!PIN });
 });
 
+// Health / diagnostics — dostępny bez PINu
+app.get('/health', async (_req, res) => {
+  const info = {
+    node:    process.version,
+    dbReady,
+    dbError,
+    env: {
+      DB_HOST: process.env.DB_HOST || 'localhost (domyślnie)',
+      DB_PORT: process.env.DB_PORT || '3306 (domyślnie)',
+      DB_USER: process.env.DB_USER ? `${process.env.DB_USER.slice(0,3)}***` : '(brak!)',
+      DB_PASS: process.env.DB_PASS ? '***' : '(brak!)',
+      DB_NAME: process.env.DB_NAME || '(brak!)',
+    },
+  };
+
+  // próba testowego zapytania
+  if (!dbReady && !dbError) {
+    try {
+      await pool.execute('SELECT 1');
+      info.pingOk = true;
+    } catch (e) {
+      info.pingOk  = false;
+      info.pingErr = e.message;
+    }
+  }
+
+  res.json(info);
+});
+
 // Globalny handler błędów
 app.use((err, _req, res, _next) => {
   console.error(err);
