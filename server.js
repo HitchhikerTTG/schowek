@@ -21,6 +21,9 @@ const pool = mysql.createPool({
   timezone:           '+00:00',
 });
 
+let dbReady = false;
+let dbError = null;
+
 async function initDb() {
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS clips (
@@ -30,6 +33,7 @@ async function initDb() {
       created_at INT UNSIGNED NOT NULL DEFAULT (UNIX_TIMESTAMP())
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
+  dbReady = true;
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────
@@ -37,6 +41,13 @@ async function initDb() {
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(join(__dirname, 'public')));
+
+function requireDb(req, res, next) {
+  if (dbReady) return next();
+  const msg = dbError ? `Błąd bazy danych: ${dbError}` : 'Baza danych nie jest jeszcze gotowa';
+  res.status(503).json({ error: msg });
+}
+app.use('/api', requireDb);
 
 function checkPin(req, res, next) {
   if (!PIN) return next();
@@ -108,14 +119,14 @@ app.use((err, _req, res, _next) => {
 
 // ── Start ──────────────────────────────────────────────────────────────────────
 
-initDb()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Schowek działa na http://localhost:${PORT}${PIN ? ' (PIN wymagany)' : ''}`);
+app.listen(PORT, () => {
+  console.log(`Schowek działa na http://localhost:${PORT}${PIN ? ' (PIN wymagany)' : ''}`);
+  initDb()
+    .then(() => console.log('Baza danych gotowa'))
+    .catch(err => {
+      dbError = err.message;
+      console.error('Błąd bazy danych:', err.message);
+      console.error('Sprawdź DB_HOST, DB_USER, DB_PASS, DB_NAME w .env');
+      console.error(`DB_HOST=${process.env.DB_HOST || 'localhost'} DB_NAME=${process.env.DB_NAME} DB_USER=${process.env.DB_USER}`);
     });
-  })
-  .catch(err => {
-    console.error('Błąd połączenia z bazą danych:', err.message);
-    console.error('Sprawdź zmienne DB_HOST, DB_USER, DB_PASS, DB_NAME w pliku .env');
-    process.exit(1);
-  });
+});
