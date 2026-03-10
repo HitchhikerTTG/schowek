@@ -1,10 +1,8 @@
-import 'dotenv/config';
-import express from 'express';
-import mysql from 'mysql2/promise';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+require('dotenv').config();
+const express = require('express');
+const mysql   = require('mysql2/promise');
+const path    = require('path');
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
 const PIN  = process.env.PIN  || '';
 
@@ -40,7 +38,7 @@ async function initDb() {
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static(join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 function requireDb(req, res, next) {
   if (dbReady) return next();
@@ -126,8 +124,7 @@ app.get('/health', async (_req, res) => {
     },
   };
 
-  // próba testowego zapytania
-  if (!dbReady && !dbError) {
+  if (!dbReady) {
     try {
       await pool.execute('SELECT 1');
       info.pingOk = true;
@@ -155,7 +152,6 @@ app.listen(PORT, () => {
     .catch(err => {
       dbError = err.message;
       console.error('Błąd bazy danych:', err.message);
-      console.error('Sprawdź DB_HOST, DB_USER, DB_PASS, DB_NAME w .env');
       console.error(`DB_HOST=${process.env.DB_HOST || 'localhost'} DB_NAME=${process.env.DB_NAME} DB_USER=${process.env.DB_USER}`);
     });
 });
